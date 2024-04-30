@@ -6,10 +6,14 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 
 class Utils {
 
-  companion object {
-    @JvmField
-    val MAPPER: ObjectMapper = ObjectMapper().registerKotlinModule()
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    companion object {
+        @JvmField
+        val MAPPER: ObjectMapper = ObjectMapper().registerKotlinModule()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-  }
+        val SUMMARIES_FILENAME = "summaries.json"
+        val ZEPP_BASE_URL = "https://api-mifit.huami.com"
+    }
+
+
 }

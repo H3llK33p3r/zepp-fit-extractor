@@ -69,7 +69,7 @@ class FitConverter {
             writeFitFile(outputFile, messages)
             return outputFile
         } else {
-            log.error("Unsupported activity type [{}] skipping trackId [{}]", container.activityType, container.id)
+            log.warn("Unsupported activity type identified in Zepp with [{}]. Skipping trackId [{}]", container.summary.type, container.id)
         }
         return null
 
@@ -92,7 +92,7 @@ class FitConverter {
         //Now we must declare all records !
         when (sport.activityType) {
             ActivityType.RUNNING -> fillOutdoorWithGpsRecord(sport, messages)
-            ActivityType.`INDOOR_SWIMMING` -> fillSwimming(sport, messages)
+            ActivityType.INDOOR_SWIMMING -> fillSwimming(sport, messages)
             ActivityType.WALKING -> fillOutdoorWithGpsRecord(sport, messages)
             ActivityType.CYCLING -> fillOutdoorWithGpsRecord(sport, messages)
             UNKNOWN -> TODO()

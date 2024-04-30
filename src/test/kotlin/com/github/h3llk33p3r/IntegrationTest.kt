@@ -65,10 +65,10 @@ class IntegrationTest {
 
     @Test
     @Throws(Exception::class)
-    fun testFitForCycling() {
+    fun testFitForWalking() {
         val output = File("target")
-        val detail = Utils.MAPPER.readValue(File("src/test/resources/json/cycling_1652541476_detail.json"), SportDetail::class.java)
-        val summary = Utils.MAPPER.readValue(File("src/test/resources/json/cycling_1652541476_summary.json"), SportSummary::class.java)
+        val detail = Utils.MAPPER.readValue(File("src/test/resources/json/walk_1542558074_detail.json"), SportDetail::class.java)
+        val summary = Utils.MAPPER.readValue(File("src/test/resources/json/walk_1542558074_summary.json"), SportSummary::class.java)
         assertNotNull(detail)
         assertNotNull(summary)
         val outputfit = converter.convertToFit(output, summary, detail)
