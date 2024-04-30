@@ -17,7 +17,6 @@ import com.garmin.fit.Manufacturer
 import com.garmin.fit.Mesg
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
-import com.garmin.fit.Sport
 import com.garmin.fit.util.SemicirclesConverter.degreesToSemicircles
 import com.github.h3llk33p3r.client.SportDetail
 import com.github.h3llk33p3r.client.SportSummary
@@ -36,7 +35,15 @@ class FitConverter {
     private val log = LoggerFactory.getLogger(FitConverter::class.java)
 
     /**
-     * With provided raw input files, create a fit activity file
+     * With provided raw input files, create a fit activity file. Content is the following
+     *
+     * FileId message
+     * DeviceInfo message
+     * Activity message
+     * Event(s) (start - stop)
+     * Record(s)
+     * Lap (for now only single lap is generated)
+     * Session
      *
      * @param outputDirectory The directory to write result file into
      * @param summary The sport summary data as returned by the webservice
@@ -81,10 +88,10 @@ class FitConverter {
 
         //Now we must declare all records !
         when (sport.activityType) {
-            ActivityType.RUNNING -> fillRunningRecord(sport, messages)
+            ActivityType.RUNNING -> fillOutdoorWithGpsRecord(sport, messages)
             ActivityType.`INDOOR_SWIMMING` -> TODO()
-            ActivityType.WALKING -> TODO()
-            ActivityType.CYCLING -> TODO()
+            ActivityType.WALKING -> fillOutdoorWithGpsRecord(sport, messages)
+            ActivityType.CYCLING -> fillOutdoorWithGpsRecord(sport, messages)
             UNKNOWN -> TODO()
         }
 
@@ -97,10 +104,11 @@ class FitConverter {
         return messages
     }
 
+    //TODO : Name ?
     /**
      * Method to manage a running workout
      */
-    private fun fillRunningRecord(sport: SportContainer, messages: MutableList<Mesg>) {
+    private fun fillOutdoorWithGpsRecord(sport: SportContainer, messages: MutableList<Mesg>) {
 
         for (data in sport.timedData) {
             //Compute new data point
@@ -108,30 +116,34 @@ class FitConverter {
             recordMesg.timestamp = DateTime(data.timestamp)
             recordMesg.heartRate = data.heartRate
             //RPM => Revolution per minute. We must divide per 2 the number of step.
-            data.stepFrequency?.let { recordMesg.cadence = (data.stepFrequency / 2).toShort() }
-
-            recordMesg.speed = data.speed
+            data.speed?.let { recordMesg.speed = it }
             //Convert as mention in the rest doc !
-            data.altitude?.let { recordMesg.altitude = (data.altitude / 100).toFloat() }
-            data.latitude?.let { recordMesg.positionLat = degreesToSemicircles(data.latitude) }
-            data.longitude?.let { recordMesg.positionLong = degreesToSemicircles(data.longitude) }
-            data.stride?.let { recordMesg.stepLength = (data.stride * 10).toFloat() }
-
+            data.altitude?.let { recordMesg.altitude = (it / 100).toFloat() }
+            data.latitude?.let { recordMesg.positionLat = degreesToSemicircles(it) }
+            data.longitude?.let { recordMesg.positionLong = degreesToSemicircles(it) }
+            if (sport.activityType.gaitSupported) {
+                data.stepFrequency?.let { recordMesg.cadence = (data.stepFrequency / 2).toShort() }
+                data.stride?.let { recordMesg.stepLength = (it * 10).toFloat() }
+            }
             messages.add(recordMesg)
-
         }
 
-        //FIXME: manage if multiple lap !
+        //FIXME: Only manage single lap for now !
         val lap = LapMesg()
         lap.timestamp = DateTime(sport.startDate)
         lap.totalElapsedTime = sport.activityDuration.toSeconds().toFloat()
-        lap.totalDistance = sport.summary.dis!!.toFloat()
-        lap.totalAscent = sport.summary.altitude_ascend
-        lap.totalDescent = sport.summary.altitude_descend
+        lap.messageIndex = 0
+        lap.event = Event.LAP
+        lap.startTime = DateTime(sport.startDate)
+        lap.totalTimerTime = sport.activityDuration.toSeconds().toFloat()
+
+        sport.summary.dis?.let { lap.totalDistance = it.toFloat() }
+        sport.summary.altitude_ascend?.let { lap.totalAscent = it }
+        sport.summary.altitude_descend?.let { lap.totalDescent = it }
         messages.add(lap)
 
         val session = sessionMesg(sport)
-        session.sport = Sport.RUNNING
+        session.sport = sport.activityType.fitType
         messages.add(session)
 
     }
@@ -141,14 +153,21 @@ class FitConverter {
         session.timestamp = DateTime(sport.endDate)
         session.startTime = DateTime(sport.startDate)
         session.totalElapsedTime = sport.activityDuration.toSeconds().toFloat()
-        session.totalAscent = sport.summary.altitude_ascend
-        session.totalDescent = sport.summary.altitude_descend
-        sport.summary.dis?.let { session.totalDistance = sport.summary.dis!!.toFloat() }
-        sport.summary.calorie?.let { session.totalCalories = sport.summary.calorie!!.toFloat().toInt() }
-        sport.summary.avg_heart_rate?.let { session.avgHeartRate = sport.summary.avg_heart_rate!!.toFloat().toInt().toShort() }
-        sport.summary.min_heart_rate?.let { session.minHeartRate = sport.summary.min_heart_rate!!.toShort() }
-        sport.summary.max_heart_rate?.let { session.maxHeartRate = sport.summary.max_heart_rate!!.toShort() }
-        sport.summary.avg_stride_length?.let { session.avgStepLength = sport.summary.avg_stride_length!!.toFloat() * 10 }
+        session.totalTimerTime = sport.activityDuration.toSeconds().toFloat()
+        session.messageIndex = 0
+
+        //FIXME: Only manage single lap for now !
+        session.firstLapIndex = 0
+        session.numLaps = 1
+
+        sport.summary.altitude_ascend?.let { session.totalAscent = it }
+        sport.summary.altitude_descend?.let { session.totalDescent = it }
+        sport.summary.dis?.let { session.totalDistance = it.toFloat() }
+        sport.summary.calorie?.let { session.totalCalories = it.toFloat().toInt() }
+        sport.summary.avg_heart_rate?.let { session.avgHeartRate = it.toFloat().toInt().toShort() }
+        sport.summary.min_heart_rate?.let { session.minHeartRate = it.toShort() }
+        sport.summary.max_heart_rate?.let { session.maxHeartRate = it.toShort() }
+        sport.summary.avg_stride_length?.let { session.avgStepLength = it.toFloat() * 10 }
         //Not setting avg cadence => Garmin connect compute it !
         return session
     }

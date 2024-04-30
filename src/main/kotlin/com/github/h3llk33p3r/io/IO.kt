@@ -9,17 +9,19 @@ import kotlin.math.max
 
 
 //Summary
-enum class ActivityType(val zeppType: Int, val supported: Boolean, val fitType: Sport) {
+/**
+ * @param zeppType: The int used by zepp to identify the sport type !
+ * @param supported: Flag in order to avoid fit generation when sport is not yet implemented
+ * @param fitType The enum used for fit file for corresponding sport
+ * @param gaitSupported If the sport can have gait information
+ */
+enum class ActivityType(val zeppType: Int, val supported: Boolean, val fitType: Sport, val gaitSupported: Boolean) {
 
-    RUNNING(1, true, Sport.RUNNING),
-    WALKING(6, false, Sport.WALKING),
-    CYCLING(9, false, Sport.CYCLING),
-    INDOOR_SWIMMING(14, false, Sport.SWIMMING),
-
-    //    OTHER(16, false),
-    //    INDOOR_ROWING(23, false),
-    //    BADMINTON(92, false),
-    UNKNOWN(-1, false, Sport.GENERIC);
+    RUNNING(1, true, Sport.RUNNING, true),
+    WALKING(6, true, Sport.WALKING, true),
+    CYCLING(9, true, Sport.CYCLING, false),
+    INDOOR_SWIMMING(14, false, Sport.SWIMMING, false),
+    UNKNOWN(-1, false, Sport.GENERIC, false);
 
     companion object {
         fun fromZepp(type: Int): ActivityType {
