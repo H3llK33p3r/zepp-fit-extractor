@@ -5,6 +5,7 @@ import com.garmin.fit.ActivityMesg
 import com.garmin.fit.DateTime
 import com.garmin.fit.DeviceIndex
 import com.garmin.fit.DeviceInfoMesg
+import com.garmin.fit.DisplayMeasure
 import com.garmin.fit.Event
 import com.garmin.fit.EventMesg
 import com.garmin.fit.EventType
@@ -17,10 +18,12 @@ import com.garmin.fit.Manufacturer
 import com.garmin.fit.Mesg
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
+import com.garmin.fit.SwimStroke
 import com.garmin.fit.util.SemicirclesConverter.degreesToSemicircles
 import com.github.h3llk33p3r.client.SportDetail
 import com.github.h3llk33p3r.client.SportSummary
 import com.github.h3llk33p3r.io.ActivityType
+import com.github.h3llk33p3r.io.ActivityType.INDOOR_SWIMMING
 import com.github.h3llk33p3r.io.ActivityType.UNKNOWN
 import com.github.h3llk33p3r.io.SportContainer
 import org.slf4j.LoggerFactory
@@ -89,7 +92,7 @@ class FitConverter {
         //Now we must declare all records !
         when (sport.activityType) {
             ActivityType.RUNNING -> fillOutdoorWithGpsRecord(sport, messages)
-            ActivityType.`INDOOR_SWIMMING` -> TODO()
+            ActivityType.`INDOOR_SWIMMING` -> fillSwimming(sport, messages)
             ActivityType.WALKING -> fillOutdoorWithGpsRecord(sport, messages)
             ActivityType.CYCLING -> fillOutdoorWithGpsRecord(sport, messages)
             UNKNOWN -> TODO()
@@ -104,9 +107,32 @@ class FitConverter {
         return messages
     }
 
-    //TODO : Name ?
+    private fun fillSwimming(sport: SportContainer, messages: MutableList<Mesg>) {
+        //FIXME: Only manage single lap for now !
+        val lap = LapMesg()
+        lap.timestamp = DateTime(sport.startDate)
+        lap.totalElapsedTime = sport.activityDuration.toSeconds().toFloat()
+        lap.messageIndex = 0
+        lap.event = Event.LAP
+        lap.startTime = DateTime(sport.startDate)
+        lap.totalTimerTime = sport.activityDuration.toSeconds().toFloat()
+
+        sport.summary.dis?.let { lap.totalDistance = it.toFloat() }
+        sport.summary.altitude_ascend?.let { lap.totalAscent = it }
+        sport.summary.altitude_descend?.let { lap.totalDescent = it }
+        messages.add(lap)
+
+        val session = sessionMesg(sport)
+        session.sport = sport.activityType.fitType
+        messages.add(session)
+
+
+    }
+
     /**
-     * Method to manage a running workout
+     * Method to manage a running activity on outdoor with GPS coordinate like :
+     *
+     * Cycling, running, walking...
      */
     private fun fillOutdoorWithGpsRecord(sport: SportContainer, messages: MutableList<Mesg>) {
 
@@ -150,7 +176,7 @@ class FitConverter {
 
     private fun sessionMesg(sport: SportContainer): SessionMesg {
         val session = SessionMesg()
-        session.timestamp = DateTime(sport.endDate)
+        session.timestamp = DateTime(sport.startDate)
         session.startTime = DateTime(sport.startDate)
         session.totalElapsedTime = sport.activityDuration.toSeconds().toFloat()
         session.totalTimerTime = sport.activityDuration.toSeconds().toFloat()
@@ -160,14 +186,31 @@ class FitConverter {
         session.firstLapIndex = 0
         session.numLaps = 1
 
-        sport.summary.altitude_ascend?.let { session.totalAscent = it }
-        sport.summary.altitude_descend?.let { session.totalDescent = it }
+        sport.summary.altitude_ascend?.let { if (it > 0) session.totalAscent = it }
+        sport.summary.altitude_descend?.let { if (it > 0) session.totalDescent = it }
         sport.summary.dis?.let { session.totalDistance = it.toFloat() }
         sport.summary.calorie?.let { session.totalCalories = it.toFloat().toInt() }
-        sport.summary.avg_heart_rate?.let { session.avgHeartRate = it.toFloat().toInt().toShort() }
-        sport.summary.min_heart_rate?.let { session.minHeartRate = it.toShort() }
-        sport.summary.max_heart_rate?.let { session.maxHeartRate = it.toShort() }
-        sport.summary.avg_stride_length?.let { session.avgStepLength = it.toFloat() * 10 }
+        sport.summary.avg_heart_rate?.let { if (it.toFloat() > 0) session.avgHeartRate = it.toFloat().toInt().toShort() }
+        sport.summary.min_heart_rate?.let { if (it.toFloat() > 0) session.minHeartRate = it.toShort() }
+        sport.summary.max_heart_rate?.let { if (it.toFloat() > 0) session.maxHeartRate = it.toShort() }
+        sport.summary.avg_stride_length?.let { if (it > 0) session.avgStepLength = it.toFloat() * 10 }
+
+        if (sport.activityType == INDOOR_SWIMMING) {
+            sport.summary.swim_pool_length?.let {
+                if (it > 0) {
+                    session.poolLength = it.toFloat()
+                    session.poolLengthUnit = DisplayMeasure.METRIC
+                }
+            }
+            // We are not using the avg_stroke_speed because we do not manage pause here!
+            // We prefer to let garmin compute to have a better value
+            sport.summary.total_trips?.let { if (it > 0) session.numActiveLengths = it }
+            sport.summary.total_strokes?.let { if (it > 0) session.totalStrokes = it.toLong() }
+            sport.summary.avg_distance_per_stroke?.let { if (it > 0) session.avgStrokeDistance = it / 100 } //mm -> m
+            sport.summary.max_stroke_speed?.let { if (it > 0) session.enhancedMaxSpeed = it }
+            sport.summary.swim_style?.let { if (it > 0) session.swimStroke = swimStroke(it) }
+        }
+
         //Not setting avg cadence => Garmin connect compute it !
         return session
     }
@@ -233,9 +276,20 @@ class FitConverter {
         return deviceInfoMesg
     }
 
+    /**
+     * Mapper from zepp int to garmin SwimStroke enum
+     * @param zeppValue The zepp int value
+     */
+    private fun swimStroke(zeppValue: Int): SwimStroke {
+        return when (zeppValue) {
+            1 -> SwimStroke.BREASTSTROKE
+            2 -> SwimStroke.FREESTYLE
+            4 -> SwimStroke.MIXED
+            else -> SwimStroke.INVALID
+        }
+    }
 
     companion object {
-        // Max 20 Chars!  Amazfit Stratos 3?
         private const val PRODUCT_NAME = "zepp-fit-extractor"
         private const val FIT_CONVERTER_PRODUCT = 1
         private const val FIT_CONVERTER_SN: Long = 9131870

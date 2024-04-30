@@ -20,7 +20,7 @@ enum class ActivityType(val zeppType: Int, val supported: Boolean, val fitType: 
     RUNNING(1, true, Sport.RUNNING, true),
     WALKING(6, true, Sport.WALKING, true),
     CYCLING(9, true, Sport.CYCLING, false),
-    INDOOR_SWIMMING(14, false, Sport.SWIMMING, false),
+    INDOOR_SWIMMING(14, true, Sport.SWIMMING, false),
     UNKNOWN(-1, false, Sport.GENERIC, false);
 
     companion object {
