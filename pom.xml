@@ -15,7 +15,17 @@
     <artifactId>zepp-fit-extractor</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
+    <url>https://github.com/H3llK33p3r/zepp-fit-extractor</url>
+
     <description>Project used to dump all sport activities and create .fit files to be able to import them on another sport platform</description>
+
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>http://www.apache.org/licenses/</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
