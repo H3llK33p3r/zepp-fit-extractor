@@ -95,6 +95,7 @@ class FitConverter {
             ActivityType.INDOOR_SWIMMING -> fillSwimming(sport, messages)
             ActivityType.WALKING -> fillOutdoorWithGpsRecord(sport, messages)
             ActivityType.CYCLING -> fillOutdoorWithGpsRecord(sport, messages)
+            ActivityType.TREADMILL -> fillOutdoorWithGpsRecord(sport, messages)
             UNKNOWN -> TODO()
         }
 
@@ -181,7 +182,9 @@ class FitConverter {
         session.totalElapsedTime = sport.activityDuration.toSeconds().toFloat()
         session.totalTimerTime = sport.activityDuration.toSeconds().toFloat()
         session.messageIndex = 0
-
+        session.enhancedAvgSpeed = (sport.summary.dis?.let {
+            (it.toFloat() / sport.activityDuration.toSeconds().toFloat())
+        } ?: 0f)
         //FIXME: Only manage single lap for now !
         session.firstLapIndex = 0
         session.numLaps = 1

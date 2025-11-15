@@ -19,6 +19,7 @@ enum class ActivityType(val zeppType: Int, val supported: Boolean, val fitType: 
 
     RUNNING(1, true, Sport.RUNNING, true),
     WALKING(6, true, Sport.WALKING, true),
+    TREADMILL(8, true, Sport.FITNESS_EQUIPMENT, true),
     CYCLING(9, true, Sport.CYCLING, false),
     INDOOR_SWIMMING(14, true, Sport.SWIMMING, false),
     UNKNOWN(-1, false, Sport.GENERIC, false);
