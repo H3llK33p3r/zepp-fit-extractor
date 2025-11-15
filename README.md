@@ -18,6 +18,7 @@ Here a table of supported sports:
 | Walking         | 0.1.0   |
 | Cycling         | 0.1.0   |
 | Indoor swimming | 0.1.0   |
+| Treadmill       | 0.1.1   |
 
 For now laps are not supported (not included in the output files).
 
